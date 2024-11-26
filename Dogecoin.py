@@ -1,35 +1,25 @@
-!pip install pycryptodome
+!!pip install bip-utils
 
-import os
-import ecdsa
-import hashlib
-import base58
-from Crypto.Hash import RIPEMD160  # Import from pycryptodome
+from bip_utils import Bip39MnemonicGenerator, Bip39SeedGenerator, Bip44, Bip44Coins, Bip44Changes
 
-def generate_dogecoin_address():
-    # Generate private key
-    private_key = os.urandom(32)
-    private_key_hex = private_key.hex()
+def generate_dogecoin_wallet_with_seed():
+    # Step 1: Generate a mnemonic (seed phrase)
+    mnemonic = Bip39MnemonicGenerator().FromWordsNumber(12)  # 12-word mnemonic
+    print("Mnemonic (Seed Phrase):", mnemonic)
 
-    # Generate public key
-    sk = ecdsa.SigningKey.from_string(private_key, curve=ecdsa.SECP256k1)
-    vk = sk.verifying_key
-    public_key = b"\x04" + vk.to_string()
+    # Step 2: Generate a seed from the mnemonic
+    seed_bytes = Bip39SeedGenerator(mnemonic).Generate()
 
-    # Generate address (simplified for Dogecoin)
-    sha256_1 = hashlib.sha256(public_key).digest()
-    ripemd160 = RIPEMD160.new()
-    ripemd160.update(sha256_1)
-    hashed_public_key = ripemd160.digest()
+    # Step 3: Derive a Dogecoin wallet using BIP-44 standard
+    bip44_wallet = Bip44.FromSeed(seed_bytes, Bip44Coins.DOGECOIN)
+    account = bip44_wallet.Purpose().Coin().Account(0).Change(Bip44Changes.CHAIN_EXT).AddressIndex(0)
 
-    network_byte = b"\x1E"  # Prefix for Dogecoin mainnet
-    network_key = network_byte + hashed_public_key
+    # Step 4: Retrieve the private key and address
+    private_key = account.PrivateKey().Raw().ToHex()
+    address = account.PublicKey().ToAddress()
 
-    checksum = hashlib.sha256(hashlib.sha256(network_key).digest()).digest()[:4]
-    address = base58.b58encode(network_key + checksum).decode()
-
-    print("Private Key (hex):", private_key_hex)
     print("Dogecoin Address:", address)
+    print("Dogecoin Private Key:", private_key)
 
-# Generate Dogecoin private key and address
-generate_dogecoin_address()
+# Generate a Dogecoin wallet
+generate_dogecoin_wallet_with_seed()
